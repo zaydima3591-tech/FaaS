@@ -1,24 +1,42 @@
-import { kv } from '@vercel/kv';
+import { createClient } from 'redis';
+
+let redisClient;
+
+async function getRedisClient() {
+  if (!redisClient) {
+    redisClient = createClient();
+    redisClient.on('error', (err) => console.error('Redis Client Error', err));
+    await redisClient.connect();
+  }
+  return redisClient;
+}
 
 export default async function handler(req, res) {
-  const { id } = req.query;
-
-  if (!id) {
-    return res.status(400).send('ID is required');
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const { originalUrl } = req.body;
+
+  if (!originalUrl) {
+    return res.status(400).json({ error: 'URL is required' });
+  }
+
+  const shortId = Math.random().toString(36).substring(2, 8);
+
   try {
-    const linkData = await kv.get(`link:${id}`);
+    const redis = await getRedisClient();
 
-    if (!linkData) {
-      return res.status(404).send('Not found');
-    }
+    const linkData = {
+      originalUrl: originalUrl,
+      clicks: 0,
+      createdAt: new Date().toISOString()
+    };
 
-    linkData.clicks += 1;
-    await kv.set(`link:${id}`, linkData);
+    await redis.set(`link:${shortId}`, JSON.stringify(linkData));
 
-    return res.redirect(302, linkData.originalUrl);
+    return res.status(200).json({ success: true, shortId });
   } catch (error) {
-    return res.status(500).send('Internal server error');
+    return res.status(500).json({ error: error.message });
   }
 }

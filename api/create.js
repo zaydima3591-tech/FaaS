@@ -1,4 +1,15 @@
-import { kv } from '@vercel/kv';
+import { createClient } from 'redis';
+
+let redisClient;
+
+async function getRedisClient() {
+  if (!redisClient) {
+    redisClient = createClient();
+    redisClient.on('error', (err) => console.error('Redis Client Error', err));
+    await redisClient.connect();
+  }
+  return redisClient;
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -14,11 +25,15 @@ export default async function handler(req, res) {
   const shortId = Math.random().toString(36).substring(2, 8);
 
   try {
-    await kv.set(`link:${shortId}`, {
+    const redis = await getRedisClient();
+
+    const linkData = {
       originalUrl: originalUrl,
       clicks: 0,
       createdAt: new Date().toISOString()
-    });
+    };
+
+    await redis.set(`link:${shortId}`, JSON.stringify(linkData));
 
     return res.status(200).json({ success: true, shortId });
   } catch (error) {
