@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>FaaS Пет-проект</title>
+</head>
+<body>
+
+    <h1>Тестируем Serverless</h1>
+    <input type="text" id="userName" placeholder="Введите ваше имя">
+    <button onclick="sayHello()">Отправить в облако</button>
+
+    <p id="result" style="font-weight: bold; color: green;"></p>
+
+    <script>
+        async function sayHello() {
+            const name = document.getElementById('userName').value;
+            const resultElement = document.getElementById('result');
+
+            try {
+                // Отправляем запрос на нашу функцию
+                const response = await fetch(`/api/hello?name=${encodeURIComponent(name)}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    resultElement.innerText = data.message;
+                    resultElement.style.color = "green";
+                } else {
+                    resultElement.innerText = "Ошибка: " + data.error;
+                    resultElement.style.color = "red";
+                }
+            } catch (error) {
+                resultElement.innerText = "Не удалось связаться с функцией.";
+                resultElement.style.color = "red";
+            }
+        }
+    </script>
+</body>
+</html>
