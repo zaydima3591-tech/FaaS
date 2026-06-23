@@ -1,38 +1,62 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="uk">
 <head>
     <meta charset="UTF-8">
-    <title>FaaS Пет-проект</title>
+    <title>DropLink | Serverless Shortener</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div class="container">
+        <h1>DropLink</h1>
+        <p class="subtitle">Миттєве скорочення посилань на базі FaaS & Redis</p>
+        
+        <div class="form-group">
+            <input type="url" id="longUrl" placeholder="Вставте довге посилання (https://...)" required>
+            <button onclick="shortenLink()">Скоротити</button>
+        </div>
 
-    <h1>Тестируем Serverless</h1>
-    <input type="text" id="userName" placeholder="Введите ваше имя">
-    <button onclick="sayHello()">Отправить в облако</button>
-
-    <p id="result" style="font-weight: bold; color: green;"></p>
+        <div id="resultCard" class="card hidden">
+            <h3>Ваше посилання готове:</h3>
+            <div class="copy-box">
+                <input type="text" id="shortUrl" readonly>
+                <button onclick="copyToClipboard()">Копіювати</button>
+            </div>
+            <p class="info">При переході за цим посиланням хмара автоматично підрахує клік в базі даних.</p>
+        </div>
+    </div>
 
     <script>
-        async function sayHello() {
-            const name = document.getElementById('userName').value;
-            const resultElement = document.getElementById('result');
+        async function shortenLink() {
+            const longUrl = document.getElementById('longUrl').value;
+            if (!longUrl) return alert('Будь ласка, введіть URL!');
 
             try {
-                // Отправляем запрос на нашу функцию
-                const response = await fetch(`/api/hello?name=${encodeURIComponent(name)}`);
+                const response = await fetch('/api/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ originalUrl: longUrl })
+                });
+                
                 const data = await response.json();
-
                 if (data.success) {
-                    resultElement.innerText = data.message;
-                    resultElement.style.color = "green";
+                    const host = window.location.origin;
+                    const finalUrl = `${host}/api/redirect?id=${data.shortId}`;
+                    
+                    document.getElementById('shortUrl').value = finalUrl;
+                    document.getElementById('resultCard').classList.remove('hidden');
                 } else {
-                    resultElement.innerText = "Ошибка: " + data.error;
-                    resultElement.style.color = "red";
+                    alert('Помилка: ' + data.error);
                 }
-            } catch (error) {
-                resultElement.innerText = "Не удалось связаться с функцией.";
-                resultElement.style.color = "red";
+            } catch (err) {
+                alert('Не вдалося надіслати запит до функції');
             }
+        }
+
+        function copyToClipboard() {
+            const copyText = document.getElementById('shortUrl');
+            copyText.select();
+            document.execCommand('copy');
+            alert('Посилання скопійовано в буфер обміну!');
         }
     </script>
 </body>
