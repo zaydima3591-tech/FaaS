@@ -12,8 +12,8 @@ export default async function handler(req, res) {
   }
 
   const shortId = Math.random().toString(36).substring(2, 8);
-
-  // Инициализируем клиента с таймаутом на подключение (10 секунд)
+  
+  // Создаем клиента для каждого запроса
   const redisClient = createClient({
     url: process.env.REDIS_URL,
     socket: { connectTimeout: 10000 }
@@ -32,12 +32,12 @@ export default async function handler(req, res) {
 
     await redisClient.set(`link:${shortId}`, JSON.stringify(linkData));
 
-    // ВАЖНО: Закрываем соединение перед отправкой ответа
+    // ВАЖНО: Закрываем соединение перед ответом
     await redisClient.quit();
 
     return res.status(200).json({ success: true, shortId });
   } catch (error) {
-    // В случае ошибки также гарантируем закрытие соединения
+    // Безопасное закрытие при ошибке
     if (redisClient.isOpen) {
       await redisClient.quit();
     }

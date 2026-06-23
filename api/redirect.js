@@ -31,7 +31,7 @@ export default async function handler(req, res) {
     linkData.clicks += 1;
     await redisClient.set(`link:${id}`, JSON.stringify(linkData));
 
-    // Закрываем соединение перед редиректом
+    // Закрываем соединение перед перенаправлением
     await redisClient.quit();
 
     return res.redirect(308, linkData.originalUrl);
