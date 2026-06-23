@@ -7,17 +7,13 @@ const redis = new Redis({
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
-
   const { id } = req.query;
-  if (!id) return res.status(400).json({ error: 'Parameter id is required' });
-
   try {
     const linkData = await redis.get(`link:${id}`);
     if (!linkData) return res.status(404).json({ error: 'Link not found' });
-
+    
     linkData.clicks += 1;
     await redis.set(`link:${id}`, linkData);
-
     return res.redirect(308, linkData.originalUrl);
   } catch (error) {
     return res.status(500).json({ error: error.message });
