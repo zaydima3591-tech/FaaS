@@ -1,18 +1,5 @@
 import { createClient } from 'redis';
 
-let redisClient;
-
-async function getRedisClient() {
-  if (!redisClient) {
-    redisClient = createClient({
-      url: process.env.REDIS_URL
-    });
-    redisClient.on('error', (err) => console.error('Redis Client Error', err));
-    await redisClient.connect();
-  }
-  return redisClient;
-}
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -26,8 +13,16 @@ export default async function handler(req, res) {
 
   const shortId = Math.random().toString(36).substring(2, 8);
 
+  // Инициализируем клиента с таймаутом на подключение (10 секунд)
+  const redisClient = createClient({
+    url: process.env.REDIS_URL,
+    socket: { connectTimeout: 10000 }
+  });
+
+  redisClient.on('error', (err) => console.error('Redis Client Error', err));
+
   try {
-    const redis = await getRedisClient();
+    await redisClient.connect();
 
     const linkData = {
       originalUrl: originalUrl,
@@ -35,10 +30,17 @@ export default async function handler(req, res) {
       createdAt: new Date().toISOString()
     };
 
-    await redis.set(`link:${shortId}`, JSON.stringify(linkData));
+    await redisClient.set(`link:${shortId}`, JSON.stringify(linkData));
+
+    // ВАЖНО: Закрываем соединение перед отправкой ответа
+    await redisClient.quit();
 
     return res.status(200).json({ success: true, shortId });
   } catch (error) {
+    // В случае ошибки также гарантируем закрытие соединения
+    if (redisClient.isOpen) {
+      await redisClient.quit();
+    }
     return res.status(500).json({ error: error.message });
   }
 }
