@@ -1,44 +1,25 @@
-import { createClient } from 'redis';
+import { Redis } from '@upstash/redis';
+
+const redis = new Redis({
+  url: process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   const { id } = req.query;
-
-  if (!id) {
-    return res.status(400).json({ error: 'Parameter id is required' });
-  }
-
-  const redisClient = createClient({
-    url: process.env.REDIS_URL,
-    socket: { connectTimeout: 10000 }
-  });
-
-  redisClient.on('error', (err) => console.error('Redis Client Error', err));
+  if (!id) return res.status(400).json({ error: 'Parameter id is required' });
 
   try {
-    await redisClient.connect();
-    const data = await redisClient.get(`link:${id}`);
+    const linkData = await redis.get(`link:${id}`);
+    if (!linkData) return res.status(404).json({ error: 'Link not found' });
 
-    if (!data) {
-      await redisClient.quit();
-      return res.status(404).json({ error: 'Link not found' });
-    }
-
-    const linkData = JSON.parse(data);
     linkData.clicks += 1;
-    await redisClient.set(`link:${id}`, JSON.stringify(linkData));
-
-    // Закрываем соединение перед перенаправлением
-    await redisClient.quit();
+    await redis.set(`link:${id}`, linkData);
 
     return res.redirect(308, linkData.originalUrl);
   } catch (error) {
-    if (redisClient.isOpen) {
-      await redisClient.quit();
-    }
     return res.status(500).json({ error: error.message });
   }
 }
